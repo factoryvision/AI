@@ -1,6 +1,6 @@
+import argparse
 from concurrent.futures import ThreadPoolExecutor
 
-import torch
 import cv2
 import math
 
@@ -10,6 +10,13 @@ import numpy as np
 import time
 
 from tqdm import tqdm
+
+# flask 관련
+import os
+import torch
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
     # Resize and pad image while meeting stride-multiple constraints
@@ -247,11 +254,12 @@ def prepare_image(image):
     _image = cv2.cvtColor(_image, cv2.COLOR_BGR2RGB)
     return _image
 
-def prepare_vid_out(video_path, vid_cap):
+def prepare_vid_out(video_path, vid_cap, output_dir):
     vid_write_image = letterbox(vid_cap.read()[1], 960, stride=64, auto=True)[0]
     resize_height, resize_width = vid_write_image.shape[:2]
-    out_video_name = f"{video_path.split('/')[-1].split('.')[0]}_keypoint.mp4"
-    out = cv2.VideoWriter(out_video_name,
+    out_video_name = f"{video_path.split('/')[-1].split('.')[0]}_result.mp4"
+    out_video_path = os.path.join(output_dir, out_video_name)
+    out = cv2.VideoWriter(out_video_path,
                           cv2.VideoWriter_fourcc(*'mp4v'),
                           30,
                           (resize_width, resize_height))
@@ -282,8 +290,9 @@ def process_video_async(video_path):
         print('Error while trying to read video. Please check path again')
         return
 
+    output_dir = '/Users/munga-eul/video/result'
     model, device = get_pose_model()
-    vid_out = prepare_vid_out(video_path, vid_cap)
+    vid_out = prepare_vid_out(video_path, vid_cap, output_dir)
 
     success, frame = vid_cap.read()
     _frames = []
@@ -307,4 +316,23 @@ def process_video_async(video_path):
     vid_cap.release()
 
 # process_video_async('/Users/munga-eul/Desktop/gettyimages-1447805594-640_adpp.mp4')
-process_video_async('/Users/munga-eul/yoloprac/ultralytics-main/gettyimages-1286619966-640_adpp.mp4')
+# process_video_async('/Users/munga-eul/yoloprac/ultralytics-main/gettyimages-1286619966-640_adpp.mp4')
+
+@app.route('/upload_video', methods=['POST'])
+def process_video():
+    file = request.files['file']
+
+    upload_dir = '/Users/munga-eul/video/upload'
+    video_filename = 'video.mp4'
+    video_path = os.path.join(upload_dir, video_filename)
+    file.save(video_path)
+
+    process_video_async(video_path)
+
+    return jsonify({'message': 'Video processing started successfully.'}), 200
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Flask app exposing yolov7 models")
+    parser.add_argument("--port", default=5002, type=int, help="port number")
+    args = parser.parse_args()
+    app.run(port=args.port)
