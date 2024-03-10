@@ -1,3 +1,4 @@
+
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 
@@ -259,11 +260,13 @@ def prepare_vid_out(video_path, vid_cap, output_dir):
     resize_height, resize_width = vid_write_image.shape[:2]
     out_video_name = f"{video_path.split('/')[-1].split('.')[0]}_result.mp4"
     out_video_path = os.path.join(output_dir, out_video_name)
+
     out = cv2.VideoWriter(out_video_path,
                           cv2.VideoWriter_fourcc(*'mp4v'),
                           30,
                           (resize_width, resize_height))
-    return out
+    # 로컬에 결과 영상 저장, 져장된 파일 경로 함께 반환
+    return out, out_video_path
 
 def process_frame(frame, model, device):
     image, output = get_pose(frame, model, device)
@@ -292,7 +295,7 @@ def process_video_async(video_path):
 
     output_dir = '/Users/munga-eul/video/result'
     model, device = get_pose_model()
-    vid_out = prepare_vid_out(video_path, vid_cap, output_dir)
+    vid_out, vid_out_path = prepare_vid_out(video_path, vid_cap, output_dir)
 
     success, frame = vid_cap.read()
     _frames = []
@@ -315,6 +318,8 @@ def process_video_async(video_path):
     vid_out.release()
     vid_cap.release()
 
+    return vid_out, vid_out_path
+
 # process_video_async('/Users/munga-eul/Desktop/gettyimages-1447805594-640_adpp.mp4')
 # process_video_async('/Users/munga-eul/yoloprac/ultralytics-main/gettyimages-1286619966-640_adpp.mp4')
 
@@ -323,13 +328,14 @@ def process_video():
     file = request.files['file']
 
     upload_dir = '/Users/munga-eul/video/upload'
+    output_dir = '/Users/munga-eul/video/result'
     video_filename = 'video.mp4'
     video_path = os.path.join(upload_dir, video_filename)
     file.save(video_path)
 
-    process_video_async(video_path)
+    result, video_url = process_video_async(video_path)
 
-    return jsonify({'message': 'Video processing started successfully.'}), 200
+    return jsonify({'message': 'Video processing started successfully.', 'videoUrl': video_url}), 200
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Flask app exposing yolov7 models")
