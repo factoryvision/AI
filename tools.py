@@ -6,7 +6,7 @@ from PIL import Image
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from poseEstimation import image_to_pose
 from tqdm import tqdm
-from main import fall_detection
+from app import fall_detection
 
 FALL = 1
 NOT_FALL = 0
