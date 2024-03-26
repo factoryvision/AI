@@ -16,8 +16,10 @@ from tqdm import tqdm
 import os
 import torch
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "http://localhost:8080"}})
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
     # Resize and pad image while meeting stride-multiple constraints
@@ -294,6 +296,7 @@ def process_video_async(video_path):
         return
 
     output_dir = '/Users/munga-eul/video/result'
+    # output_dir = '/app/result'
     model, device = get_pose_model()
     vid_out, vid_out_path = prepare_vid_out(video_path, vid_cap, output_dir)
 
@@ -301,19 +304,21 @@ def process_video_async(video_path):
     _frames = []
     while success:
         _frames.append(frame)
+        _image = process_frame(frame, model, device)
+        vid_out.write(_image)
         success, frame = vid_cap.read()
 
     process_frame.fall_start_time = 0
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        futures = []
-        for frame in _frames:
-            future = executor.submit(process_frame, frame, model, device)
-            futures.append(future)
-
-        for future in tqdm(futures):
-            image = future.result()
-            vid_out.write(image)
+    # with ThreadPoolExecutor(max_workers=4) as executor:
+    #     futures = []
+    #     for frame in _frames:
+    #         future = executor.submit(process_frame, frame, model, device)
+    #         futures.append(future)
+    #
+    #     for future in tqdm(futures):
+    #         image = future.result()
+    #         vid_out.write(image)
 
     vid_out.release()
     vid_cap.release()
@@ -328,7 +333,7 @@ def process_video():
     file = request.files['file']
 
     upload_dir = '/Users/munga-eul/video/upload'
-    output_dir = '/Users/munga-eul/video/result'
+    # upload_dir = '/app/upload'
     video_filename = 'video.mp4'
     video_path = os.path.join(upload_dir, video_filename)
     file.save(video_path)
@@ -341,4 +346,4 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Flask app exposing yolov7 models")
     parser.add_argument("--port", default=5002, type=int, help="port number")
     args = parser.parse_args()
-    app.run(port=args.port)
+    app.run(host='0.0.0.0', port=args.port)
